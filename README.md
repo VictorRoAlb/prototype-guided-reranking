@@ -13,43 +13,10 @@ Works with any vision-language foundation model. Operates entirely on precompute
 
 ## Method
 
-The pipeline has two stages, illustrated below:
+![Method Overview](docs/figures/prototype_reranking_workflow.png)
 
-```
-╔══════════════════════════ Initial Cross-Modal Retrieval ════════════════════════╗
-║                                                                                 ║
-║  WSI ──► patches ──► f_V (frozen) ──► E_1…E_n ──► MPA ──► Ē (1×D)  ─────┐    ║
-║                                                                            ⊗    ║
-║  Text report ──────────────────── f_T (frozen) ──────────────► z_q (1×D) ─┘    ║
-║                                                     cosine similarity           ║
-║                                              ──────────────────────────────►   ║
-║                                                      Initial Top-50             ║
-╚═════════════════════════════════════════════════════════════════════════════════╝
-
-╔══════════════════════ Prototype-guided Re-ranking (PGR) ════════════════════════╗
-║                                                                                 ║
-║  ┌─ Fixed PGR ─────────────────────────────────────────────────────────────┐   ║
-║  │  Patches ──► K-means (fixed K) ──► Prototypes (K×D)                    │   ║
-║  └─────────────────────────────────────────────────────────────────────────┘   ║
-║                                                                                 ║
-║  ┌─ Adaptive PGR ──────────────────────────────────────────────────────────┐   ║
-║  │  Patches ──► Explore K ∈ {2,4,6,8,12}                                  │   ║
-║  │              ──► Utility U(K) = Coverage × Support                      │   ║
-║  │              ──► Select K*  (near-best parsimony)                       │   ║
-║  │              ──► Prototypes (K*×D)  +  Confidence cᵢ ∈ [0,1]           │   ║
-║  │                  cᵢ = (1−p)·c₀ + p·uᵢ(K*)   [p=0.5, c₀=0.80]         │   ║
-║  └─────────────────────────────────────────────────────────────────────────┘   ║
-║                                                                                 ║
-║  Prototype similarity:  max cos(z_q , p_ik)                                    ║
-║                                                                                 ║
-║  Final score:  S_fixed  = 0.20·s_global + 0.80·s_proto                         ║
-║                S_adap   = (1−cᵢ)·s_global + cᵢ·s_proto                        ║
-║                                                                                 ║
-║       Initial Top-50  ──► PGR ──►  Re-ranked Top-50                            ║
-╚═════════════════════════════════════════════════════════════════════════════════╝
-```
-
-*MPA = Mean-pool aggregation. f_V, f_T = frozen vision/text encoders.*
+*MPA = Mean-pool aggregation. f_V, f_T = frozen vision/text encoders (weights frozen at inference).  
+Top-50 candidates retrieved by global cosine similarity are re-ranked by prototype similarity.*
 
 ---
 
