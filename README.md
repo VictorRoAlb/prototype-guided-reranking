@@ -1,127 +1,85 @@
 # Prototype-guided Reranking for Cross-modal Histopathology Retrieval
 
-Training-free prototype-guided reranking (PGR) for cross-modal retrieval in
-computational pathology. The method improves image–text and text–image retrieval
-by replacing the global mean-pool image representation with local prototype
-representations derived from patch-level embeddings, with no retraining required.
-
-The code operates on **precomputed embeddings** from any vision-language
-foundation model. No model weights are loaded at inference time.
+Training-free method to improve image–text and text–image retrieval in
+computational pathology. No retraining required.
 
 > No clinical data, model weights, or restricted embeddings are redistributed
 > in this repository.
 
 ---
 
-## Methods
+## How it works
 
-| Method | Description |
-|---|---|
-| `mean_pooling` | Global cosine similarity baseline (mean-pooled image vs. text) |
-| `fixed_PGR` | K-Means prototypes with fixed K; score = 0.20·global + 0.80·proto |
-| `adaptive_PGR` | Per-case K* via utility criterion; softmax-weighted centroids; confidence-blended combination |
+Standard cross-modal retrieval ranks candidates by the cosine similarity between
+a global mean-pooled image embedding and a text embedding. This works but ignores
+the internal patch structure of each slide.
 
-### Fixed prototype reranking
+This repository provides two reranking strategies that replace or complement the
+global score with a **prototype score** derived from the slide's patch embeddings:
 
-Patch embeddings of each candidate slide are clustered into K prototypes using
-MiniBatchKMeans. The prototype score is the maximum cosine similarity between the
-query embedding and any of the K prototypes. The final score is:
+1. **Fixed PGR** — cluster each slide's patches into K prototypes (fixed per
+   dataset). Score each candidate by the maximum cosine similarity between the
+   query and its K prototypes, then combine with the global score.
 
-```
-s_final = 0.20 · s_global  +  0.80 · max_k cos(query, prototype_k)
-```
+2. **Adaptive PGR** — select K* per slide automatically using a patch-coverage
+   criterion. Refine prototypes into softmax-weighted centroids. Use a
+   per-slide confidence weight that blends a fixed baseline with the quality of
+   the prototype structure.
 
-### Adaptive prototype reranking
-
-K* is selected **per case** from the grid {2, 4, 6, 8, 12} using a utility
-criterion (coverage × support) with a near-best parsimony rule. Prototypes are
-refined into softmax-weighted centroids (τ = 0.05). A confidence weight c_i
-blends a fixed baseline with the per-case prototype quality:
-
-```
-utility(K) = coverage(K) × support(K)
-K*         = smallest K with utility(K) ≥ 0.97 × max_utility
-c_i        = 0.50 × 0.80  +  0.50 × utility(K*)
-s_final    = (1 − c_i) · s_global  +  c_i · max_k cos(query, weighted_prototype_k)
-```
-
-See [docs/method_overview.md](docs/method_overview.md) for the full derivation.
+Both strategies rerank the top-100 candidates by global similarity and leave
+the rest in their original order.
 
 ---
 
-## Requirements
+## Quickstart
 
-```
-Python >= 3.9
-numpy >= 1.24
-pandas >= 1.5
-scikit-learn >= 1.2
-```
+### 1. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
----
+### 2. Prepare your embeddings
 
-## Input format
-
-Prepare three inputs for your dataset:
+You need three precomputed numpy arrays from your model of choice, plus a
+metadata CSV:
 
 ```
 data/
-  text.npy                 # (N, d)  one L2-normalised text embedding per case
-  image_meanpool.npy       # (N, d)  mean-pooled patch embedding per case, L2-normalised
+  text.npy              # (N, d)  one L2-normalised text embedding per case
+  image_meanpool.npy    # (N, d)  mean-pooled patch embedding per case
   patches/
-    CASE_0001.npy          # (P_i, d)  L2-normalised patch matrix, one file per case
-  metadata.csv             # columns: case_id, label  (same row order as the .npy files)
+    CASE_0001.npy       # (P_i, d)  patch matrix for each case (variable P_i)
+  metadata.csv          # two columns: case_id, label
 ```
 
-All embedding matrices must share the same dimension d and be **L2-normalised**.
+All embeddings must be **L2-normalised** and share the same dimension d.
 
----
-
-## Usage
-
-### Baseline
+### 3. Run
 
 ```bash
+# Baseline — global cosine similarity
 python scripts/run_baseline.py \
     --text-emb data/text.npy \
     --image-emb data/image_meanpool.npy \
-    --meta data/metadata.csv \
-    --dataset MyDataset --model MyModel \
-    --out results/baseline_query_level.csv
-```
+    --meta data/metadata.csv
 
-### Fixed prototype reranking
-
-```bash
+# Fixed prototype reranking (set K to match your dataset's mean patch count)
 python scripts/run_fixed_reranking.py \
     --text-emb data/text.npy \
     --image-emb data/image_meanpool.npy \
     --patch-dir data/patches/ \
     --meta data/metadata.csv \
-    --K 8 \
-    --out results/fixed_pgr_query_level.csv
-```
+    --K 8
 
-K should match the mean patch count of your dataset (see [docs/method_overview.md](docs/method_overview.md)).
-
-### Adaptive prototype reranking
-
-```bash
+# Adaptive prototype reranking
 python scripts/run_adaptive_reranking.py \
     --text-emb data/text.npy \
     --image-emb data/image_meanpool.npy \
     --patch-dir data/patches/ \
-    --meta data/metadata.csv \
-    --out results/adaptive_pgr_query_level.csv
-```
+    --meta data/metadata.csv
 
-### All three methods in one run
-
-```bash
+# All three methods in one run → results/macro_metrics.csv
 python scripts/run_full_evaluation.py \
     --text-emb data/text.npy \
     --image-emb data/image_meanpool.npy \
@@ -131,14 +89,30 @@ python scripts/run_full_evaluation.py \
     --out-dir results/
 ```
 
-Outputs: `results/query_level.csv` and `results/macro_metrics.csv`.
+Each script prints a MacroRecall@K / MacroMRR@10 summary table to the terminal
+and writes per-query results to a CSV.
 
 ---
 
-## Evaluation metrics
+## Choosing K (fixed reranking)
 
-All metrics use **macro aggregation**: per-class mean, then mean over classes
-(unweighted). This is recommended over micro-average for imbalanced datasets.
+K should reflect the typical number of patches per slide in your dataset:
+
+| Mean patch count | Recommended K |
+|---|---|
+| < 50 | 2 |
+| 50 – 200 | 4 – 6 |
+| > 200 | 8 |
+
+For adaptive reranking K is selected automatically per slide; no manual tuning
+is needed.
+
+---
+
+## Metrics
+
+All metrics use **macro aggregation** (per-class mean, then mean over classes),
+which is robust to class imbalance.
 
 | Metric | Description |
 |---|---|
@@ -146,10 +120,15 @@ All metrics use **macro aggregation**: per-class mean, then mean over classes
 | MacroMRR@10 | Mean reciprocal rank at cutoff 10 |
 | MacroMAP@10 | Mean average precision at cutoff 10 |
 
-Exact-pair exclusion is applied by default: the query's own case is removed from
-the candidate ranking before computing any metric.
+Exact-pair exclusion is applied by default: the query's own case is removed
+from the candidate pool before ranking.
 
 ---
+
+## Method details
+
+See [docs/method_overview.md](docs/method_overview.md) for the full formulation,
+hyperparameter definitions, and the K* selection criterion.
 
 ## Repository structure
 
@@ -168,26 +147,15 @@ scripts/
   run_full_evaluation.py
 
 docs/
-  method_overview.md     Full method description and hyperparameters
-  external_models.md     Notes on third-party foundation models
-  data_privacy.md        Data handling and privacy statement
-
-configs/
-  example_config.yaml    Annotated configuration template
+  method_overview.md
+  external_models.md
+  data_privacy.md
 ```
-
----
 
 ## External models
 
-This repository does not include third-party encoder weights. Users must obtain
-access to each foundation model from its original authors and comply with the
-corresponding license and model card. See [docs/external_models.md](docs/external_models.md).
-
-## Data privacy
-
-No clinical data, whole-slide images, pathology reports, or patient identifiers
-are included. See [docs/data_privacy.md](docs/data_privacy.md).
+This repository does not include third-party encoder weights. See
+[docs/external_models.md](docs/external_models.md).
 
 ## License
 
