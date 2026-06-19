@@ -3,6 +3,12 @@ message: "If you use this code, please cite the associated work."
 authors:
   - family-names: Rodríguez Albendea
     given-names: Víctor
+  - family-names: Meseguer
+    given-names: Pablo
+  - family-names: Terradez
+    given-names: Liria
+  - family-names: Colomer
+    given-names: Adrián
 title: "Prototype-guided Reranking for Cross-modal Histopathology Retrieval"
 type: software
 repository-code: "https://github.com/VictorRoAlb/prototype-guided-reranking"

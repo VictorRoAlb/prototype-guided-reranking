@@ -139,7 +139,10 @@ license and model card. See [docs/external_models.md](docs/external_models.md).
 
 ```bibtex
 @software{RodriguezAlbendea2026,
-  author    = {Rodr{\'i}guez Albendea, V{\'i}ctor},
+  author    = {Rodr{\'i}guez Albendea, V{\'i}ctor and
+               Meseguer, Pablo and
+               Terradez, Liria and
+               Colomer, Adri{\'a}n},
   title     = {Prototype-guided Reranking for Cross-modal Histopathology Retrieval},
   year      = {2026},
   url       = {https://github.com/VictorRoAlb/prototype-guided-reranking},
