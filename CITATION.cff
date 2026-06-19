@@ -1,11 +1,10 @@
 cff-version: 1.2.0
-message: "If you use this code, please cite the associated thesis."
+message: "If you use this code, please cite the associated work."
 authors:
-  - family-names: Rodriguez Alba
-    given-names: Victor
-    orcid: ""   # add your ORCID if available
+  - family-names: Rodríguez Albendea
+    given-names: Víctor
 title: "Prototype-guided Reranking for Cross-modal Histopathology Retrieval"
 type: software
 repository-code: "https://github.com/VictorRoAlb/prototype-guided-reranking"
 license: MIT
-year: 2025
+year: 2026

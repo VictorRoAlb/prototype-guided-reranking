@@ -3,25 +3,23 @@ fixed.py
 ========
 Fixed prototype reranking.
 
-Score combination (from paper):
-    s_final = alpha_global * s_global + (1 - alpha_global) * s_proto
-    s_proto  = mean of top-m cosine similarities between the text (or image)
-               query and the K fixed prototypes of each candidate.
+Prototype score (per candidate):
+    s_proto = max_k  cos(query, prototype_k)          (max over K prototypes)
 
-alpha_global defaults to 0.20 (q_proto = 0.80), matching the published protocol.
-K is chosen per dataset based on mean patch count (recommended: AI4SKIN=8, SICAP=2).
+Final score:
+    s_final = (1 - q_proto) * s_global  +  q_proto * s_proto
+    q_proto = 0.80  (prototype weight, i.e. alpha_global = 0.20)
+
+Reranking is applied to the top-rerank_top_n candidates per query; the rest
+keep their global-similarity order.
 """
 from __future__ import annotations
-
 from typing import Any
 
 import numpy as np
-
 from .prototypes import build_fixed_prototypes, l2_normalize
 
-
-ALPHA_GLOBAL: float = 0.20    # global similarity weight (paper value)
-Q_PROTO: float = 1.0 - ALPHA_GLOBAL  # prototype weight = 0.80
+Q_PROTO: float = 0.80       # prototype weight  (= 1 - alpha_global)
 
 
 def build_fixed_bank(
@@ -35,20 +33,21 @@ def build_fixed_bank(
 
     Parameters
     ----------
-    patch_vectors : case_id -> (P, d) patch matrix (L2-normalised rows).
+    patch_vectors : case_id -> (P, d) L2-normalised patch matrix.
     case_ids : ordered list of case IDs to include.
     K : number of prototypes per case.
 
     Returns
     -------
-    bank : case_id -> dict with keys ``prototypes`` (K, d) and ``q_proto`` (float).
+    bank : case_id -> dict with keys prototypes (K, d) and q_proto (float).
     """
     bank: dict[str, dict[str, Any]] = {}
     for cid in case_ids:
         if cid not in patch_vectors:
             continue
-        patches = np.asarray(patch_vectors[cid], dtype=np.float32)
-        protos, assign = build_fixed_prototypes(patches, K, seed=seed)
+        protos, assign = build_fixed_prototypes(
+            np.asarray(patch_vectors[cid], dtype=np.float32), K, seed=seed
+        )
         bank[cid] = {
             "case_id": cid,
             "prototypes": protos,
@@ -59,54 +58,39 @@ def build_fixed_bank(
     return bank
 
 
-def _top_m_proto_score(
-    query_vector: np.ndarray,
-    candidate_prototypes: np.ndarray,
-    m: int = 5,
-) -> float:
-    """Mean cosine similarity of the top-m query–prototype pairs."""
-    sims = candidate_prototypes @ query_vector
-    top_m = min(m, sims.shape[0])
-    return float(np.sort(sims)[::-1][:top_m].mean())
-
-
 def score_matrix_fixed(
     query_matrix: np.ndarray,
     candidate_ids: list[str],
     bank: dict[str, dict[str, Any]],
     global_scores: np.ndarray,
     *,
-    top_m: int = 5,
-    q_proto: float = Q_PROTO,
     rerank_top_n: int = 100,
 ) -> np.ndarray:
-    """Compute fixed-reranking score matrix (n_queries x n_candidates).
+    """Compute the fixed-reranking score matrix (Q x C).
 
     Parameters
     ----------
-    query_matrix : (Q, d) query embeddings (text for I2T, image for T2I).
-    candidate_ids : ordered list of candidate case IDs.
-    bank : fixed prototype bank from ``build_fixed_bank``.
-    global_scores : (Q, C) global cosine similarity matrix.
-    top_m : number of top prototypes to average for the prototype score.
-    q_proto : prototype weight (1 - alpha_global).
+    query_matrix : (Q, d) L2-normalised query embeddings.
+    candidate_ids : ordered list of C candidate case IDs.
+    bank : fixed prototype bank from build_fixed_bank.
+    global_scores : (Q, C) global cosine-similarity matrix.
     rerank_top_n : number of top candidates per query to rerank.
 
     Returns
     -------
     final_scores : (Q, C) combined score matrix.
     """
-    Q, C = global_scores.shape
+    qmat = l2_normalize(np.asarray(query_matrix, dtype=np.float32))
     final = global_scores.astype(np.float32).copy()
-    for q_idx in range(Q):
-        order = np.argsort(-global_scores[q_idx])[:rerank_top_n]
-        for rank, c_idx in enumerate(order):
+    for q_idx in range(global_scores.shape[0]):
+        top_n = np.argsort(-global_scores[q_idx])[:rerank_top_n]
+        for c_idx in top_n:
             cid = candidate_ids[c_idx]
             if cid not in bank:
                 continue
             protos = np.asarray(bank[cid]["prototypes"], dtype=np.float32)
-            q = l2_normalize(query_matrix[q_idx : q_idx + 1])[0]
-            ps = _top_m_proto_score(q, protos, m=top_m)
-            gs = float(global_scores[q_idx, c_idx])
-            final[q_idx, c_idx] = (1.0 - q_proto) * gs + q_proto * ps
+            ci = float(bank[cid]["q_proto"])
+            s_proto = float(np.max(protos @ qmat[q_idx]))
+            s_global = float(global_scores[q_idx, c_idx])
+            final[q_idx, c_idx] = (1.0 - ci) * s_global + ci * s_proto
     return final

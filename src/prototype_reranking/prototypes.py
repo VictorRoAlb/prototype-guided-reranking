@@ -3,10 +3,16 @@ prototypes.py
 =============
 Prototype construction from patch embeddings.
 
-Provides:
-  build_fixed_prototypes(patches, K)  -- plain KMeans, used by fixed reranking.
-  build_adaptive_entry(patches, ...)  -- auto-selects K* by silhouette, used by
-                                        adaptive reranking.
+K* selection (adaptive)
+-----------------------
+For each candidate K in k_grid, compute:
+    coverage = mean max-cosine-similarity from each patch to its nearest prototype
+    support  = clip(patches_per_proto / good_support, 0, 1)
+    utility  = coverage * support
+
+K* is the smallest K whose utility is within near_best_ratio of the best
+utility across the grid. This favours parsimonious representations while
+ensuring adequate patch coverage and cluster support.
 """
 from __future__ import annotations
 
@@ -14,15 +20,21 @@ import math
 from typing import Any
 
 import numpy as np
-from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score
+from sklearn.cluster import MiniBatchKMeans
 
 
-def l2_normalize(matrix: np.ndarray) -> np.ndarray:
-    """Row-wise L2 normalisation."""
-    matrix = np.asarray(matrix, dtype=np.float32)
-    norms = np.linalg.norm(matrix, axis=1, keepdims=True)
-    return matrix / np.clip(norms, 1e-12, None)
+def l2_normalize(x: np.ndarray) -> np.ndarray:
+    """Row-wise L2 normalisation. Accepts 1-D or 2-D input."""
+    x = np.asarray(x, dtype=np.float32)
+    if x.ndim == 1:
+        n = float(np.linalg.norm(x))
+        return x / max(n, 1e-12)
+    norms = np.linalg.norm(x, axis=1, keepdims=True)
+    return x / np.clip(norms, 1e-12, None)
+
+
+def _clip01(v: float) -> float:
+    return float(np.clip(v, 0.0, 1.0)) if math.isfinite(v) else 0.0
 
 
 def build_fixed_prototypes(
@@ -30,96 +42,111 @@ def build_fixed_prototypes(
     K: int,
     *,
     seed: int = 42,
+    n_init: int = 3,
+    max_iter: int = 100,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Cluster patch embeddings into K prototypes using KMeans.
+    """Cluster patch embeddings into K L2-normalised prototypes via MiniBatchKMeans.
 
     Parameters
     ----------
-    patches:
-        (P, d) patch embedding matrix. Rows should already be L2-normalised if
-        the downstream scorer uses cosine similarity.
-    K:
-        Number of clusters.
-    seed:
-        Random state for KMeans.
+    patches : (P, d) L2-normalised patch embedding matrix.
+    K : number of prototypes.
 
     Returns
     -------
-    prototypes : np.ndarray of shape (K, d), L2-normalised centroids.
-    assignments : np.ndarray of shape (P,) with cluster index per patch.
+    prototypes : (K, d) L2-normalised centroids.
+    assignments : (P,) cluster index per patch.
     """
     patches = np.asarray(patches, dtype=np.float32)
     K = min(K, patches.shape[0])
-    if K == 1:
-        return l2_normalize(patches.mean(axis=0, keepdims=True)), np.zeros(patches.shape[0], dtype=np.int32)
-    km = KMeans(n_clusters=K, n_init=10, random_state=seed)
+    batch = max(K * 10, 256, patches.shape[0])
+    km = MiniBatchKMeans(
+        n_clusters=K, random_state=seed, n_init=n_init,
+        max_iter=max_iter, batch_size=batch,
+    )
     assignments = km.fit_predict(patches).astype(np.int32)
-    centroids = np.stack([
-        patches[assignments == k].mean(axis=0) if np.any(assignments == k) else km.cluster_centers_[k]
-        for k in range(K)
-    ], axis=0).astype(np.float32)
-    return l2_normalize(centroids), assignments
-
-
-def _coverage(patches: np.ndarray, prototypes: np.ndarray) -> float:
-    """Mean max cosine similarity from each patch to its closest prototype."""
-    sim = patches @ prototypes.T
-    return float(np.max(sim, axis=1).mean())
+    return l2_normalize(np.asarray(km.cluster_centers_, dtype=np.float32)), assignments
 
 
 def build_adaptive_entry(
     case_id: str,
     patches: np.ndarray,
     *,
-    K_range: tuple[int, int] = (1, 12),
+    k_grid: tuple[int, ...] = (2, 4, 6, 8, 12),
+    min_support: int = 6,
+    good_support: int = 20,
+    near_best_ratio: float = 0.97,
     seed: int = 42,
+    n_init: int = 3,
+    max_iter: int = 100,
 ) -> dict[str, Any]:
-    """Auto-select K* and build the adaptive prototype entry for one case.
+    """Auto-select K* for one case using the utility criterion.
 
-    K* is chosen by silhouette score (or coverage when only 1 prototype is
-    considered). The returned dict is compatible with
-    ``AdaptivePrototypeReranker.build_bank``.
+    K* is the smallest K in k_grid such that utility(K) is within
+    near_best_ratio of the maximum utility across valid K values.
 
     Parameters
     ----------
     case_id : str
     patches : (P, d) L2-normalised patch embeddings.
-    K_range : (min_K, max_K) inclusive.
-    seed : random state.
+    k_grid : candidate K values to evaluate.
+    min_support : minimum patches per prototype (filters invalid K values).
+    good_support : reference patches-per-proto for normalising support.
+    near_best_ratio : threshold fraction of best utility.
 
     Returns
     -------
     dict with keys: case_id, K_star, prototypes, assignments, cluster_sizes,
-                    support, q_proto_original.
+                    support, coverage, utility, q_proto_base, n_patches.
     """
     patches = np.asarray(patches, dtype=np.float32)
-    P = patches.shape[0]
-    lo, hi = int(K_range[0]), min(int(K_range[1]), P)
+    n = patches.shape[0]
 
-    best_K, best_score, best_protos, best_assign = lo, -2.0, None, None
-    for K in range(lo, hi + 1):
-        protos, assign = build_fixed_prototypes(patches, K, seed=seed)
-        if K == 1:
-            score = _coverage(patches, protos)
-        else:
-            try:
-                score = float(silhouette_score(patches, assign, metric="cosine", sample_size=min(P, 500)))
-            except Exception:
-                score = _coverage(patches, protos)
-        if score > best_score:
-            best_score, best_K, best_protos, best_assign = score, K, protos, assign
+    if n < 2:
+        proto = l2_normalize(patches.mean(axis=0) if n > 0 else np.zeros(patches.shape[1]))
+        return {
+            "case_id": case_id, "K_star": 1,
+            "prototypes": proto.reshape(1, -1),
+            "assignments": np.zeros(n, dtype=np.int32),
+            "cluster_sizes": np.array([n], dtype=np.int32),
+            "support": _clip01(n / max(good_support, 1)),
+            "coverage": 0.0, "utility": 0.0,
+            "q_proto_base": 0.0, "n_patches": n,
+        }
 
-    cluster_sizes = np.bincount(best_assign, minlength=best_K).astype(np.int32)
-    support = float(np.count_nonzero(cluster_sizes)) / max(best_K, 1)
-    q_proto_original = float(np.clip(best_score if best_score >= 0 else 0.0, 0.0, 1.0))
+    valid_ks = [k for k in sorted(k_grid) if 0 < k <= n and (n / k) >= min_support]
+    if not valid_ks:
+        valid_ks = [k for k in sorted(k_grid) if 0 < k <= n] or [1]
+
+    results: dict[int, dict] = {}
+    for k in valid_ks:
+        protos, assign = build_fixed_prototypes(
+            patches, k, seed=seed, n_init=n_init, max_iter=max_iter
+        )
+        sim = patches @ protos.T
+        coverage = float(np.max(sim, axis=1).mean())
+        support = _clip01((n / k) / max(good_support, 1))
+        utility = coverage * support if math.isfinite(coverage) else 0.0
+        cs = np.bincount(assign, minlength=k).astype(np.int32)
+        results[k] = {
+            "prototypes": protos, "assignments": assign, "cluster_sizes": cs,
+            "coverage": coverage, "support": support, "utility": utility,
+        }
+
+    best_utility = max(r["utility"] for r in results.values())
+    threshold = near_best_ratio * best_utility
+    k_star = min(k for k in valid_ks if results[k]["utility"] >= threshold)
+    sel = results[k_star]
 
     return {
         "case_id": case_id,
-        "K_star": best_K,
-        "prototypes": best_protos,
-        "assignments": best_assign.astype(np.int32),
-        "cluster_sizes": cluster_sizes,
-        "support": support,
-        "q_proto_original": q_proto_original,
-        "n_patches": P,
+        "K_star": k_star,
+        "prototypes": sel["prototypes"].astype(np.float32),
+        "assignments": sel["assignments"].astype(np.int32),
+        "cluster_sizes": sel["cluster_sizes"],
+        "support": float(sel["support"]),
+        "coverage": float(sel["coverage"]),
+        "utility": float(sel["utility"]),
+        "q_proto_base": _clip01(sel["utility"]),
+        "n_patches": n,
     }
