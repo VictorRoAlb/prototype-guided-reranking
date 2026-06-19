@@ -1,0 +1,43 @@
+# example_config.yaml
+# -------------------
+# Configuration template for prototype-guided reranking.
+# Copy and adapt to your dataset. Do NOT commit your real paths or API tokens.
+
+dataset:
+  name: "my_dataset"
+  n_cases: 100
+  n_classes: 5
+
+embeddings:
+  # Paths to precomputed .npy files (L2-normalised, shape: N x d)
+  text: "data/embeddings/text.npy"
+  image_meanpool: "data/embeddings/image_meanpool.npy"
+  patch_dir: "data/embeddings/patches/"   # one <case_id>.npy per case
+
+metadata:
+  file: "data/metadata.csv"
+  id_col: "case_id"
+  label_col: "label"
+
+fixed_pgr:
+  K: 8              # prototypes per case (set by mean patch count; see docs/method_overview.md)
+  top_m: 5          # top-m prototype similarities to average for the prototype score
+  rerank_top_n: 100 # candidates per query to rerank
+
+adaptive_pgr:
+  k_min: 1          # minimum K* to consider
+  k_max: 12         # maximum K* to consider
+  top_m: 5
+  rerank_top_n: 100
+  q_fixed: 0.80     # fixed baseline prototype weight
+  rho: 0.50         # blend factor between q_fixed and per-case quality
+  tau: 0.05         # softmax temperature for weighted centroid
+
+evaluation:
+  exclude_exact_pair: true   # remove self-match from candidates before ranking
+  recall_ks: [1, 3, 5, 10]
+  mrr_cutoff: 10
+  map_cutoff: 10
+
+output:
+  dir: "results/"

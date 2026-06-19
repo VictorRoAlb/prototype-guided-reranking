@@ -1,0 +1,48 @@
+# Data — never commit
+data/
+embeddings/
+patches/
+*.npy
+*.npz
+*.h5
+*.hdf5
+
+# Results — regenerate, do not commit
+results/
+outputs/
+synthetic_data/
+
+# Credentials and secrets
+*.env
+.env.*
+secrets/
+tokens/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
