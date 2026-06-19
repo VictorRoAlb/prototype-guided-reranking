@@ -1,56 +1,61 @@
 # Prototype-guided Reranking for Cross-modal Histopathology Retrieval
 
-Training-free method to improve image–text and text–image retrieval in
-computational pathology. No retraining required.
+[![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Training-free](https://img.shields.io/badge/training-free-orange.svg)]()
 
-> No clinical data, model weights, or restricted embeddings are redistributed
-> in this repository.
+**Training-free reranking for image–text and text–image retrieval in computational pathology.**  
+Works with any vision-language foundation model. Operates entirely on precomputed embeddings — no GPU or model loading at inference time.
+
+> No clinical data, model weights, or restricted embeddings are redistributed in this repository.
 
 ---
 
-## How it works
+## Overview
 
-Standard cross-modal retrieval ranks candidates by the cosine similarity between
-a global mean-pooled image embedding and a text embedding. This works but ignores
-the internal patch structure of each slide.
+Standard cross-modal retrieval ranks candidates by the cosine similarity between a global
+mean-pooled image embedding and a text embedding. This ignores the internal patch structure
+of each whole-slide image.
 
-This repository provides two reranking strategies that replace or complement the
-global score with a **prototype score** derived from the slide's patch embeddings:
+This repository provides two drop-in reranking strategies that complement the global score
+with a **prototype score** derived from patch-level embeddings:
 
-1. **Fixed PGR** — cluster each slide's patches into K prototypes (fixed per
-   dataset). Score each candidate by the maximum cosine similarity between the
-   query and its K prototypes, then combine with the global score.
+```
+                    ┌─────────────────────────────────────────────┐
+  Patch embeddings  │  cluster → K prototypes → max cosine sim   │ → s_proto
+                    └─────────────────────────────────────────────┘       │
+                                                                    weighted sum → s_final
+  Global embeddings  →  mean-pool cosine similarity                → s_global   │
+                                                                         ↑
+                                                              (1−c) · s_global + c · s_proto
+```
 
-2. **Adaptive PGR** — select K* per slide automatically using a patch-coverage
-   criterion. Refine prototypes into softmax-weighted centroids. Use a
-   per-slide confidence weight that blends a fixed baseline with the quality of
-   the prototype structure.
+| Method | K selection | Confidence weight c |
+|---|---|---|
+| `fixed_PGR` | Fixed K per dataset | 0.80 (constant) |
+| `adaptive_PGR` | Per-slide K* via coverage–support utility | Per-slide, blended with baseline |
 
-Both strategies rerank the top-100 candidates by global similarity and leave
-the rest in their original order.
+Both strategies rerank the top-100 candidates and leave the rest in their original global order.
 
 ---
 
 ## Quickstart
 
-### 1. Install dependencies
+### 1. Install
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Prepare your embeddings
-
-You need three precomputed numpy arrays from your model of choice, plus a
-metadata CSV:
+### 2. Prepare your data
 
 ```
 data/
-  text.npy              # (N, d)  one L2-normalised text embedding per case
-  image_meanpool.npy    # (N, d)  mean-pooled patch embedding per case
+  text.npy               # (N, d)   one L2-normalised text embedding per case
+  image_meanpool.npy     # (N, d)   mean-pooled patch embedding per case
   patches/
-    CASE_0001.npy       # (P_i, d)  patch matrix for each case (variable P_i)
-  metadata.csv          # two columns: case_id, label
+    CASE_0001.npy        # (P_i, d) patch matrix per case  (variable P_i)
+  metadata.csv           # columns: case_id, label
 ```
 
 All embeddings must be **L2-normalised** and share the same dimension d.
@@ -58,39 +63,29 @@ All embeddings must be **L2-normalised** and share the same dimension d.
 ### 3. Run
 
 ```bash
-# Baseline — global cosine similarity
+# Baseline
 python scripts/run_baseline.py \
-    --text-emb data/text.npy \
-    --image-emb data/image_meanpool.npy \
+    --text-emb data/text.npy --image-emb data/image_meanpool.npy \
     --meta data/metadata.csv
 
-# Fixed prototype reranking (set K to match your dataset's mean patch count)
+# Fixed prototype reranking
 python scripts/run_fixed_reranking.py \
-    --text-emb data/text.npy \
-    --image-emb data/image_meanpool.npy \
-    --patch-dir data/patches/ \
-    --meta data/metadata.csv \
-    --K 8
+    --text-emb data/text.npy --image-emb data/image_meanpool.npy \
+    --patch-dir data/patches/ --meta data/metadata.csv --K 8
 
 # Adaptive prototype reranking
 python scripts/run_adaptive_reranking.py \
-    --text-emb data/text.npy \
-    --image-emb data/image_meanpool.npy \
-    --patch-dir data/patches/ \
-    --meta data/metadata.csv
+    --text-emb data/text.npy --image-emb data/image_meanpool.npy \
+    --patch-dir data/patches/ --meta data/metadata.csv
 
-# All three methods in one run → results/macro_metrics.csv
+# All three in one shot → results/macro_metrics.csv
 python scripts/run_full_evaluation.py \
-    --text-emb data/text.npy \
-    --image-emb data/image_meanpool.npy \
-    --patch-dir data/patches/ \
-    --meta data/metadata.csv \
-    --fixed-k 8 \
-    --out-dir results/
+    --text-emb data/text.npy --image-emb data/image_meanpool.npy \
+    --patch-dir data/patches/ --meta data/metadata.csv \
+    --fixed-k 8 --out-dir results/
 ```
 
-Each script prints a MacroRecall@K / MacroMRR@10 summary table to the terminal
-and writes per-query results to a CSV.
+Each script prints a MacroRecall@K / MacroMRR@10 summary and writes per-query results to CSV.
 
 ---
 
@@ -98,20 +93,19 @@ and writes per-query results to a CSV.
 
 K should reflect the typical number of patches per slide in your dataset:
 
-| Mean patch count | Recommended K |
+| Mean patches per slide | Recommended K |
 |---|---|
 | < 50 | 2 |
 | 50 – 200 | 4 – 6 |
 | > 200 | 8 |
 
-For adaptive reranking K is selected automatically per slide; no manual tuning
-is needed.
+For adaptive reranking, K is selected automatically per slide — no tuning needed.
 
 ---
 
-## Metrics
+## Evaluation metrics
 
-All metrics use **macro aggregation** (per-class mean, then mean over classes),
+All metrics use **macro aggregation** (per-class mean → mean over classes),
 which is robust to class imbalance.
 
 | Metric | Description |
@@ -120,8 +114,8 @@ which is robust to class imbalance.
 | MacroMRR@10 | Mean reciprocal rank at cutoff 10 |
 | MacroMAP@10 | Mean average precision at cutoff 10 |
 
-Exact-pair exclusion is applied by default: the query's own case is removed
-from the candidate pool before ranking.
+**Exact-pair exclusion** is applied by default: the query's own case is removed from
+the candidate pool before ranking.
 
 ---
 
@@ -130,11 +124,13 @@ from the candidate pool before ranking.
 See [docs/method_overview.md](docs/method_overview.md) for the full formulation,
 hyperparameter definitions, and the K* selection criterion.
 
+---
+
 ## Repository structure
 
 ```
 src/prototype_reranking/
-  prototypes.py     l2_normalize, build_fixed_prototypes, build_adaptive_entry
+  prototypes.py     build_fixed_prototypes, build_adaptive_entry (K* via utility)
   fixed.py          build_fixed_bank, score_matrix_fixed
   adaptive.py       build_bank, score_matrix_adaptive
   metrics.py        MacroRecall@K, MacroMRR@10, MacroMAP@10
@@ -147,28 +143,38 @@ scripts/
   run_full_evaluation.py
 
 docs/
-  method_overview.md
-  external_models.md
-  data_privacy.md
+  method_overview.md    Full formulation and hyperparameters
+  external_models.md    Notes on third-party foundation models
+  data_privacy.md       Data handling and privacy statement
+
+configs/
+  example_config.yaml   Annotated configuration template
 ```
+
+---
 
 ## External models
 
-This repository does not include third-party encoder weights. See
-[docs/external_models.md](docs/external_models.md).
+This repository does not include third-party encoder weights. Users must obtain access
+to each model from its original authors and comply with the corresponding license and
+model card. See [docs/external_models.md](docs/external_models.md).
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+[MIT](LICENSE) © 2026 Víctor Rodríguez Albendea
+
+---
 
 ## Citation
 
+If you use this code in your research, please cite:
+
 ```bibtex
-@software{rodriguez_albendea_pgr_2026,
-  author  = {Rodríguez Albendea, Víctor},
-  title   = {Prototype-guided Reranking for Cross-modal Histopathology Retrieval},
-  year    = {2026},
-  url     = {https://github.com/VictorRoAlb/prototype-guided-reranking},
-  license = {MIT}
+@software{RodriguezAlbendea2026,
+  author    = {Rodr{\'i}guez Albendea, V{\'i}ctor},
+  title     = {Prototype-guided Reranking for Cross-modal Histopathology Retrieval},
+  year      = {2026},
+  url       = {https://github.com/VictorRoAlb/prototype-guided-reranking},
+  license   = {MIT}
 }
 ```
