@@ -22,13 +22,13 @@ metadata:
 fixed_pgr:
   K: 8              # prototypes per case (set by mean patch count; see docs/method_overview.md)
   top_m: 5          # top-m prototype similarities to average for the prototype score
-  rerank_top_n: 100 # candidates per query to rerank
+  rerank_top_n: 50 # candidates per query to rerank
 
 adaptive_pgr:
   k_min: 1          # minimum K* to consider
   k_max: 12         # maximum K* to consider
   top_m: 5
-  rerank_top_n: 100
+  rerank_top_n: 50
   q_fixed: 0.80     # fixed baseline prototype weight
   rho: 0.50         # blend factor between q_fixed and per-case quality
   tau: 0.05         # softmax temperature for weighted centroid

@@ -45,7 +45,7 @@ def main() -> None:
     p.add_argument("--k-min", type=int, default=1)
     p.add_argument("--k-max", type=int, default=12)
     p.add_argument("--top-m", type=int, default=5)
-    p.add_argument("--rerank-top-n", type=int, default=100)
+    p.add_argument("--rerank-top-n", type=int, default=50)
     p.add_argument("--dataset", default="")
     p.add_argument("--model", default="")
     p.add_argument("--out-dir", type=Path, default=Path("results"))

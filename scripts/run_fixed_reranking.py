@@ -46,7 +46,7 @@ def main() -> None:
     p.add_argument("--label-col", default="label")
     p.add_argument("--K", type=int, default=8, help="Number of fixed prototypes per case")
     p.add_argument("--top-m", type=int, default=5)
-    p.add_argument("--rerank-top-n", type=int, default=100)
+    p.add_argument("--rerank-top-n", type=int, default=50)
     p.add_argument("--out", type=Path, default=Path("results/fixed_pgr_query_level.csv"))
     p.add_argument("--dataset", default="")
     p.add_argument("--model", default="")

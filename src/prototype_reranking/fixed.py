@@ -64,7 +64,7 @@ def score_matrix_fixed(
     bank: dict[str, dict[str, Any]],
     global_scores: np.ndarray,
     *,
-    rerank_top_n: int = 100,
+    rerank_top_n: int = 50,
 ) -> np.ndarray:
     """Compute the fixed-reranking score matrix (Q x C).
 
