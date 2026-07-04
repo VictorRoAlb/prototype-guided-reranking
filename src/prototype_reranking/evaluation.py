@@ -5,7 +5,7 @@ Cross-modal retrieval evaluation loop (I2T and T2I).
 
 Provides ``evaluate_retrieval`` which takes precomputed embedding matrices and
 a score matrix and produces a per-query DataFrame with Recall@K, MRR@10, and
-the top-10 label string needed for MacroMAP@10.
+the top-10 retrieved ids/labels for qualitative inspection.
 
 Exact-pair exclusion
 --------------------

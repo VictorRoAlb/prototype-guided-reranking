@@ -3,9 +3,11 @@ run_adaptive_reranking.py
 =========================
 Adaptive prototype reranking.
 
-K* is selected per-case by silhouette score. Prototypes are softmax-weighted
-centroids (τ=0.05). The confidence c_i blends a fixed baseline Q_FIXED=0.80
-with the per-case prototype quality u(K*):
+K* is selected per-case from a fixed grid {2, 4, 6, 8, 12} using a utility
+criterion (coverage x support): K* is the smallest grid value whose utility is
+within 97% of the best utility across the grid. Prototypes are then refined
+into softmax-weighted centroids (τ=0.05). The confidence c_i blends a fixed
+baseline Q_FIXED=0.80 with the per-case prototype quality u(K*):
 
     c_i  = (1 - ρ) · Q_FIXED  +  ρ · u(K*)   (ρ = 0.50)
     score = (1 - c_i) · s_global  +  c_i · s_proto
@@ -16,7 +18,6 @@ Usage:
         --image-emb path/to/image_meanpool.npy \
         --patch-dir path/to/patches/ \
         --meta path/to/metadata.csv \
-        --k-min 1 --k-max 12 \
         --out results/adaptive_pgr_query_level.csv
 """
 from __future__ import annotations
@@ -45,9 +46,8 @@ def main() -> None:
     p.add_argument("--meta", required=True, type=Path)
     p.add_argument("--id-col", default="case_id")
     p.add_argument("--label-col", default="label")
-    p.add_argument("--k-min", type=int, default=1)
-    p.add_argument("--k-max", type=int, default=12)
-    p.add_argument("--top-m", type=int, default=5)
+    p.add_argument("--k-grid", default="2,4,6,8,12",
+                   help="Comma-separated candidate K values to explore for K* selection")
     p.add_argument("--rerank-top-n", type=int, default=50)
     p.add_argument("--out", type=Path, default=Path("results/adaptive_pgr_query_level.csv"))
     p.add_argument("--dataset", default="")
@@ -66,16 +66,17 @@ def main() -> None:
         if f.exists():
             patch_vectors[cid] = l2_normalize(np.load(f).astype(np.float32))
 
-    print(f"Building adaptive bank (K_range=[{args.k_min},{args.k_max}]) for "
+    k_grid = tuple(int(k.strip()) for k in args.k_grid.split(",") if k.strip())
+    print(f"Building adaptive bank (k_grid={k_grid}) for "
           f"{len(patch_vectors)}/{len(case_ids)} cases...")
-    bank = build_bank(patch_vectors, case_ids, K_range=(args.k_min, args.k_max))
+    bank = build_bank(patch_vectors, case_ids, k_grid=k_grid)
 
     global_i2t = (image @ text.T).astype(np.float32)
     global_t2i = global_i2t.T.astype(np.float32)
     s_i2t = score_matrix_adaptive(text, case_ids, bank, global_i2t,
-                                  top_m=args.top_m, rerank_top_n=args.rerank_top_n)
+                                  rerank_top_n=args.rerank_top_n)
     s_t2i = score_matrix_adaptive(image, case_ids, bank, global_t2i,
-                                  top_m=args.top_m, rerank_top_n=args.rerank_top_n)
+                                  rerank_top_n=args.rerank_top_n)
 
     df = evaluate_both_directions(
         text, image, case_ids, labels,

@@ -12,7 +12,7 @@ Quick start
 >>> from prototype_reranking.metrics import compute_all_metrics
 """
 from .evaluation import evaluate_both_directions, evaluate_retrieval
-from .metrics import compute_all_metrics, macro_map, macro_mrr, macro_recall_at_k
+from .metrics import compute_all_metrics, macro_mrr, macro_recall_at_k
 from .prototypes import build_adaptive_entry, build_fixed_prototypes, l2_normalize
 
 __all__ = [
@@ -23,6 +23,5 @@ __all__ = [
     "evaluate_both_directions",
     "macro_recall_at_k",
     "macro_mrr",
-    "macro_map",
     "compute_all_metrics",
 ]

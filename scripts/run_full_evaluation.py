@@ -2,7 +2,7 @@
 run_full_evaluation.py
 ======================
 Run all three methods (baseline, fixed PGR, adaptive PGR) and produce a
-summary CSV with MacroRecall@{1,3,5,10}, MacroMRR@10, and MacroMAP@10.
+summary CSV with MacroRecall@{1,3,5,10} and MacroMRR@10.
 
 Usage:
     python scripts/run_full_evaluation.py \
@@ -11,7 +11,6 @@ Usage:
         --patch-dir path/to/patches/ \
         --meta path/to/metadata.csv \
         --fixed-k 8 \
-        --k-min 1 --k-max 12 \
         --out-dir results/
 """
 from __future__ import annotations
@@ -42,9 +41,8 @@ def main() -> None:
     p.add_argument("--id-col", default="case_id")
     p.add_argument("--label-col", default="label")
     p.add_argument("--fixed-k", type=int, default=8)
-    p.add_argument("--k-min", type=int, default=1)
-    p.add_argument("--k-max", type=int, default=12)
-    p.add_argument("--top-m", type=int, default=5)
+    p.add_argument("--k-grid", default="2,4,6,8,12",
+                   help="Comma-separated candidate K values for adaptive K* selection")
     p.add_argument("--rerank-top-n", type=int, default=50)
     p.add_argument("--dataset", default="")
     p.add_argument("--model", default="")
@@ -81,9 +79,9 @@ def main() -> None:
     # ── Fixed PGR ───────────────────────────────────────────────────────────
     fixed_bank = build_fixed_bank(patch_vectors, case_ids, K=args.fixed_k)
     s_i = score_matrix_fixed(text, case_ids, fixed_bank, global_i2t,
-                             top_m=args.top_m, rerank_top_n=args.rerank_top_n)
+                             rerank_top_n=args.rerank_top_n)
     s_t = score_matrix_fixed(image, case_ids, fixed_bank, global_t2i,
-                             top_m=args.top_m, rerank_top_n=args.rerank_top_n)
+                             rerank_top_n=args.rerank_top_n)
     df = evaluate_both_directions(
         text, image, case_ids, labels,
         method="fixed_PGR", dataset=args.dataset, model=args.model,
@@ -94,11 +92,12 @@ def main() -> None:
     print(f"  [fixed_PGR K={args.fixed_k}] done")
 
     # ── Adaptive PGR ────────────────────────────────────────────────────────
-    adaptive_bank = build_bank(patch_vectors, case_ids, K_range=(args.k_min, args.k_max))
+    k_grid = tuple(int(k.strip()) for k in args.k_grid.split(",") if k.strip())
+    adaptive_bank = build_bank(patch_vectors, case_ids, k_grid=k_grid)
     s_i = score_matrix_adaptive(text, case_ids, adaptive_bank, global_i2t,
-                                top_m=args.top_m, rerank_top_n=args.rerank_top_n)
+                                rerank_top_n=args.rerank_top_n)
     s_t = score_matrix_adaptive(image, case_ids, adaptive_bank, global_t2i,
-                                top_m=args.top_m, rerank_top_n=args.rerank_top_n)
+                                rerank_top_n=args.rerank_top_n)
     df = evaluate_both_directions(
         text, image, case_ids, labels,
         method="adaptive_PGR", dataset=args.dataset, model=args.model,
@@ -106,7 +105,7 @@ def main() -> None:
     )
     all_rows.append(df)
     all_metrics += compute_all_metrics(df, dataset=args.dataset, model=args.model, method="adaptive_PGR")
-    print(f"  [adaptive_PGR K=[{args.k_min},{args.k_max}]] done")
+    print(f"  [adaptive_PGR k_grid={k_grid}] done")
 
     # ── Save ─────────────────────────────────────────────────────────────────
     args.out_dir.mkdir(parents=True, exist_ok=True)

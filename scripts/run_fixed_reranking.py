@@ -4,7 +4,8 @@ run_fixed_reranking.py
 Fixed prototype reranking.
 
 Patch embeddings are clustered into K centroids per case. The retrieval score
-combines the global cosine similarity with the mean top-m prototype similarity:
+combines the global cosine similarity with the top-1 prototype similarity
+(max cosine similarity between the query and any of the K prototypes):
 
     s_final = (1 - q_proto) * s_global  +  q_proto * s_proto   (q_proto = 0.80)
 
@@ -45,7 +46,6 @@ def main() -> None:
     p.add_argument("--id-col", default="case_id")
     p.add_argument("--label-col", default="label")
     p.add_argument("--K", type=int, default=8, help="Number of fixed prototypes per case")
-    p.add_argument("--top-m", type=int, default=5)
     p.add_argument("--rerank-top-n", type=int, default=50)
     p.add_argument("--out", type=Path, default=Path("results/fixed_pgr_query_level.csv"))
     p.add_argument("--dataset", default="")
@@ -70,9 +70,9 @@ def main() -> None:
     global_i2t = (image @ text.T).astype(np.float32)
     global_t2i = global_i2t.T.astype(np.float32)
     s_i2t = score_matrix_fixed(text, case_ids, bank, global_i2t,
-                               top_m=args.top_m, rerank_top_n=args.rerank_top_n)
+                               rerank_top_n=args.rerank_top_n)
     s_t2i = score_matrix_fixed(image, case_ids, bank, global_t2i,
-                               top_m=args.top_m, rerank_top_n=args.rerank_top_n)
+                               rerank_top_n=args.rerank_top_n)
 
     df = evaluate_both_directions(
         text, image, case_ids, labels,

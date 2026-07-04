@@ -21,13 +21,13 @@ metadata:
 
 fixed_pgr:
   K: 8              # prototypes per case (set by mean patch count; see docs/method_overview.md)
-  top_m: 5          # top-m prototype similarities to average for the prototype score
-  rerank_top_n: 50 # candidates per query to rerank
+  rerank_top_n: 50  # candidates per query to rerank
 
 adaptive_pgr:
-  k_min: 1          # minimum K* to consider
-  k_max: 12         # maximum K* to consider
-  top_m: 5
+  k_grid: [2, 4, 6, 8, 12]  # candidate K values explored for K* selection
+  min_support: 6            # minimum patches per prototype (filters invalid K values)
+  good_support: 20          # reference patches-per-prototype for normalising support
+  near_best_ratio: 0.97     # K* = smallest K within this fraction of the best utility
   rerank_top_n: 50
   q_fixed: 0.80     # fixed baseline prototype weight
   rho: 0.50         # blend factor between q_fixed and per-case quality
@@ -37,7 +37,6 @@ evaluation:
   exclude_exact_pair: true   # remove self-match from candidates before ranking
   recall_ks: [1, 3, 5, 10]
   mrr_cutoff: 10
-  map_cutoff: 10
 
 output:
   dir: "results/"

@@ -31,7 +31,7 @@ The final score combines global and prototype similarity:
     s_final = (1 − q_proto) · s_global  +  q_proto · s_proto
 
 where **q_proto = 0.80** (fixed, corresponding to alpha_global = 0.20). Reranking
-is applied to the top-100 candidates by global similarity; the rest retain their
+is applied to the top-50 candidates by global similarity; the rest retain their
 global order.
 
 K is chosen per dataset based on mean patch count per slide. A practical guide:
@@ -85,7 +85,7 @@ The final score uses the same formula as fixed reranking but with case-specific 
 
 - **Exact-pair exclusion**: the query's own case is removed from the candidate
   pool before ranking. Enabled by default.
-- **Macro aggregation**: Recall@K, MRR@10, and MAP@10 are computed per class,
-  then averaged over classes (unweighted). Recommended for imbalanced datasets.
+- **Macro aggregation**: Recall@K and MRR@10 are computed per class, then
+  averaged over classes (unweighted). Recommended for imbalanced datasets.
 - **Directions**: I2T (image query → text candidates) and T2I (text query → image
   candidates) are evaluated independently.

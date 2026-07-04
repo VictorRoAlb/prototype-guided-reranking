@@ -15,7 +15,7 @@ Works with any vision-language foundation model. Operates entirely on precompute
 
 ![Method Overview](docs/figures/prototype_reranking_workflow.png)
 
-*MPA = Mean-pool aggregation. f_V, f_T = frozen vision/text encoders (weights frozen at inference).  
+*BGAP = Batch Global Average Pooling. f_V, f_T = frozen vision/text encoders (weights frozen at inference).  
 Top-50 candidates retrieved by global cosine similarity are re-ranked by prototype similarity.*
 
 ---
@@ -92,7 +92,6 @@ is robust to class imbalance.
 |---|---|
 | MacroRecall@K | K ∈ {1, 3, 5, 10} |
 | MacroMRR@10 | Mean reciprocal rank at cutoff 10 |
-| MacroMAP@10 | Mean average precision at cutoff 10 |
 
 **Exact-pair exclusion** is applied by default: the query's own case is removed
 from the candidate pool before ranking.
@@ -106,7 +105,7 @@ src/prototype_reranking/
   prototypes.py     build_fixed_prototypes, build_adaptive_entry (K* via utility)
   fixed.py          build_fixed_bank, score_matrix_fixed
   adaptive.py       build_bank, score_matrix_adaptive
-  metrics.py        MacroRecall@K, MacroMRR@10, MacroMAP@10
+  metrics.py        MacroRecall@K, MacroMRR@10
   evaluation.py     evaluate_retrieval, evaluate_both_directions
 
 scripts/
@@ -114,6 +113,9 @@ scripts/
   run_fixed_reranking.py
   run_adaptive_reranking.py
   run_full_evaluation.py
+
+examples/
+  generate_synthetic_data.py   Fully synthetic smoke-test data (no real content)
 
 docs/
   method_overview.md    Full formulation and hyperparameters
