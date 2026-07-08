@@ -4,10 +4,9 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Training-free](https://img.shields.io/badge/training-free-orange.svg)]()
 
-**Training-free reranking for image–text and text–image retrieval in computational pathology.**  
-Works with any vision-language foundation model. Operates entirely on precomputed embeddings — no GPU or model loading at inference time.
+Post-hoc, training-free reranking method for cross-modal retrieval (image↔text) in computational pathology. Operates on precomputed frozen embeddings — no model retraining, no labels, no GPU required at inference.
 
-> No clinical data, model weights, or restricted embeddings are redistributed in this repository.
+> No clinical data, model weights, or restricted embeddings are included in this repository.
 
 ---
 
@@ -15,10 +14,19 @@ Works with any vision-language foundation model. Operates entirely on precompute
 
 ![Method Overview](docs/figures/prototype_reranking_workflow.png)
 
-*BGAP = Batch Global Average Pooling. f_V, f_T = frozen vision/text encoders (weights frozen at inference).  
-Top-50 candidates retrieved by global cosine similarity are re-ranked by prototype similarity.*
-
 ---
+
+## Requirements
+
+This repository only requires Python 3.9+ and standard scientific libraries
+(NumPy, scikit-learn, pandas, matplotlib). See `requirements.txt`.
+
+> **Model environments** — KEEP, CONCH, MUSK, PATHO-CLIP, TITAN and PRISM each
+> require their own Python environment and dependencies (some are gated on
+> HuggingFace and have specific CUDA/PyTorch requirements). This reranking code
+> operates entirely on **precomputed embeddings** and is independent of those
+> environments. Refer to each model's documentation before generating embeddings.
+> See [docs/external_models.md](docs/external_models.md) for pointers.
 
 ## Quickstart
 
@@ -109,19 +117,44 @@ src/prototype_reranking/
   evaluation.py     evaluate_retrieval, evaluate_both_directions
 
 scripts/
-  run_baseline.py
-  run_fixed_reranking.py
-  run_adaptive_reranking.py
-  run_full_evaluation.py
-
-examples/
-  generate_synthetic_data.py   Fully synthetic smoke-test data (no real content)
+  run_baseline.py              global cosine-similarity baseline
+  run_fixed_reranking.py       fixed-K prototype reranking
+  run_adaptive_reranking.py    per-case K* adaptive reranking
+  run_full_evaluation.py       all three methods in one run
+  visualize_wsi.py             prototype activation map on a TIF slide
 
 docs/
   method_overview.md    Full formulation and hyperparameters
   external_models.md    Notes on third-party foundation models
   data_privacy.md       Data handling and privacy statement
 ```
+
+---
+
+## Prototype activation maps on a WSI
+
+Given a whole-slide image in `.tif` format with its patch coordinates, the
+method can visualize which patches are activated by the winning prototype for a
+given text query — directly on the slide thumbnail.
+
+```bash
+python scripts/visualize_wsi.py \
+    --tif        path/to/slide.tif \
+    --coords     path/to/patch_coords.csv \
+    --patches    path/to/patch_embeddings.npy \
+    --text-emb   path/to/text_query.npy \
+    --method     adaptive \
+    --out        outputs/activation_map.png
+```
+
+`patch_coords.csv` must have columns `x` and `y` (top-left corner of each patch
+in slide pixels) and optionally `patch_size_px`. Patch embeddings must be
+L2-normalised and row-aligned with the coordinates file.
+
+The script generates a two-panel figure: the original slide thumbnail on the
+left and the prototype activation overlay on the right (each activated patch
+drawn as a colored square). With `--method fixed` use `--K` to set the number
+of prototypes; with `--method adaptive` K* is selected automatically.
 
 ---
 

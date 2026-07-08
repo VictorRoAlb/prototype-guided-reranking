@@ -12,20 +12,27 @@ corresponding license and usage terms.
 | KEEP | patch-level VL | [GitHub / HuggingFace — check model card] |
 | CONCH | patch-level VL | [HuggingFace — gated, request access] |
 | MUSK | patch-level VL | [HuggingFace — check model card] |
-| Patho-CLIP | patch-level VL | [HuggingFace / GitHub — check model card] |
+| PATHO-CLIP | patch-level VL | [HuggingFace / GitHub — check model card] |
 | TITAN | WSI-level VL | [HuggingFace — gated, request access] |
 | PRISM | WSI-level VL | [HuggingFace — gated, request access] |
 
 **This repository does not grant access to any of these models.** If a model
 requires a HuggingFace access request, submit it directly to the model authors.
 
+## Python environment note
+
+Each model above may require a different Python version, CUDA version, or set of
+dependencies. This reranking repository is **independent** of those environments —
+it only needs `numpy`, `scikit-learn`, `pandas`, and `matplotlib`. Once you have
+your embeddings saved as `.npy` files, no model-specific environment is needed to
+run the reranking scripts.
+
 ## What you need to use this code
 
-1. A set of pre-encoded embeddings (text, image mean-pool, and patch matrices)
-   produced by your own model of choice.
-2. A CSV metadata file with case identifiers and class labels.
-3. No GPU or model loading is required at inference time — the reranking operates
-   entirely on pre-computed numpy arrays.
+1. Pre-encoded embeddings (text, BGAP image, and per-case patch matrices) from
+   your model of choice, saved as `.npy` files.
+2. A CSV metadata file with `case_id` and `label` columns.
+3. No GPU or model loading is required at inference time.
 
 ## Producing compatible embeddings
 
