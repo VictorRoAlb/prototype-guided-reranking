@@ -1,7 +1,4 @@
-"""
-run_fixed_reranking.py
-======================
-Fixed prototype reranking.
+"""Fixed prototype reranking.
 
 Patch embeddings are clustered into K centroids per case. The retrieval score
 combines the global cosine similarity with the top-1 prototype similarity

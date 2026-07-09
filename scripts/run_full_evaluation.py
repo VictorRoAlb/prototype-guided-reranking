@@ -1,7 +1,4 @@
-"""
-run_full_evaluation.py
-======================
-Run all three methods (baseline, fixed PGR, adaptive PGR) and produce a
+"""Run all three methods (baseline, fixed PGR, adaptive PGR) and produce a
 summary CSV with MacroRecall@{1,3,5,10} and MacroMRR@10.
 
 Usage:

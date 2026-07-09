@@ -1,7 +1,4 @@
-"""
-run_adaptive_reranking.py
-=========================
-Adaptive prototype reranking.
+"""Adaptive prototype reranking.
 
 K* is selected per-case from a fixed grid {2, 4, 6, 8, 12} using a utility
 criterion (coverage x support): K* is the smallest grid value whose utility is

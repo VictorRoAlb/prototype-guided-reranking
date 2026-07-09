@@ -1,7 +1,4 @@
-"""
-visualize_wsi.py
-================
-Prototype activation map on a whole-slide image (TIF format).
+"""Prototype activation map on a whole-slide image (TIF format).
 
 For a given text query and a WSI with precomputed patch embeddings, the script
 identifies which patches are activated by the winning prototype and overlays

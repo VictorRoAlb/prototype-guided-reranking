@@ -1,7 +1,4 @@
-"""
-run_baseline.py
-===============
-Baseline cross-modal retrieval: global cosine similarity (mean-pool image vs text).
+"""Baseline cross-modal retrieval: global cosine similarity (mean-pool image vs text).
 
 Reads precomputed .npy embedding files and a CSV metadata file.
 
