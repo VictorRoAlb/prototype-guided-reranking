@@ -1,10 +1,6 @@
-"""
-prototype_reranking
-===================
-Training-free prototype-guided reranking for cross-modal histopathology retrieval.
+"""Training-free prototype-guided reranking for cross-modal histopathology retrieval.
 
-Quick start
------------
+Quick start:
 >>> from prototype_reranking.prototypes import build_fixed_prototypes, build_adaptive_entry
 >>> from prototype_reranking.fixed import build_fixed_bank, score_matrix_fixed
 >>> from prototype_reranking.adaptive import build_bank, score_matrix_adaptive

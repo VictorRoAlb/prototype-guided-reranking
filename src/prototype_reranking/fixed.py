@@ -1,7 +1,4 @@
-"""
-fixed.py
-========
-Fixed prototype reranking.
+"""Fixed prototype reranking.
 
 Prototype score (per candidate):
     s_proto = max_k  cos(query, prototype_k)          (max over K prototypes)

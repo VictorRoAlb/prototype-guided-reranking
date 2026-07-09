@@ -1,17 +1,12 @@
-"""
-adaptive.py
-===========
-Adaptive prototype reranking.
+"""Adaptive prototype reranking.
 
-Overview
---------
-For each image, K* prototypes are selected per-case using a utility criterion
-(see prototypes.build_adaptive_entry). The prototypes are then refined into
-softmax-weighted centroids (temperature tau=0.05), making each centroid more
-representative of the dominant patch direction within its cluster.
+For each case, K* prototypes are selected using a utility criterion (see
+prototypes.build_adaptive_entry), then refined into softmax-weighted centroids
+(temperature tau=0.05) so each centroid better represents the dominant patch
+direction within its cluster.
 
-The confidence weight c_i is a regularised blend of a fixed baseline Q_FIXED
-and the per-case prototype quality q_proto_base:
+The confidence weight c_i blends a fixed baseline Q_FIXED with the per-case
+prototype quality q_proto_base:
 
     c_i = (1 - rho) * Q_FIXED  +  rho * q_proto_base     [rho=0.50, Q_FIXED=0.80]
 
@@ -19,11 +14,10 @@ The final retrieval score combines global and prototype similarity:
 
     s_final = (1 - c_i) * s_global  +  c_i * s_proto
 
-where s_proto = max_k cos(query, weighted_prototype_k).
-
-Cases with low patch support or poor prototype structure automatically fall back
-toward global similarity (c_i closer to Q_FIXED * (1-rho) = 0.40), while cases
-with strong, well-separated prototype structure receive higher prototype weight.
+where s_proto = max_k cos(query, weighted_prototype_k). Cases with low patch
+support or poor prototype structure fall back toward global similarity (c_i
+closer to Q_FIXED * (1-rho) = 0.40); cases with strong, well-separated
+prototype structure receive higher prototype weight.
 """
 from __future__ import annotations
 

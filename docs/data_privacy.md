@@ -10,9 +10,6 @@ This repository contains **only** model-agnostic Python code. It does not includ
 - Embeddings computed from real clinical data.
 - Metadata tables derived from hospital or clinical systems.
 
-The `examples/` folder uses **fully synthetic embeddings** generated from random
-Gaussian noise with no relation to any real dataset.
-
 ## Intended use
 
 The code is intended for researchers who already hold the appropriate institutional

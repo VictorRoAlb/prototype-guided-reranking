@@ -1,17 +1,13 @@
-"""
-evaluation.py
-=============
-Cross-modal retrieval evaluation loop (I2T and T2I).
+"""Cross-modal retrieval evaluation loop (I2T and T2I).
 
 Provides ``evaluate_retrieval`` which takes precomputed embedding matrices and
 a score matrix and produces a per-query DataFrame with Recall@K, MRR@10, and
 the top-10 retrieved ids/labels for qualitative inspection.
 
-Exact-pair exclusion
---------------------
-When a query image and a candidate image are the *same case*, the candidate is
-removed before ranking. This prevents trivially perfect self-retrieval from
-inflating the metrics. Enable with ``exclude_exact_pair=True`` (default).
+Exact-pair exclusion: when a query and a candidate are the *same case*, the
+candidate is removed before ranking. This prevents trivially perfect
+self-retrieval from inflating the metrics. Enable with
+``exclude_exact_pair=True`` (default).
 """
 from __future__ import annotations
 

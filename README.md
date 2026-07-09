@@ -14,6 +14,11 @@ Post-hoc, training-free reranking method for cross-modal retrieval (image↔text
 
 ![Method Overview](docs/figures/prototype_reranking_workflow.png)
 
+Top-50 candidates from global similarity are re-ranked using prototype
+similarity (△ in the figure), computed either with a fixed number of
+prototypes per case or with a per-case adaptive count K\*. See
+[docs/method_overview.md](docs/method_overview.md) for the full formulation.
+
 ---
 
 ## Requirements

@@ -1,18 +1,14 @@
-"""
-metrics.py
-==========
-Retrieval metrics for cross-modal histopathology evaluation.
+"""Retrieval metrics for cross-modal histopathology evaluation.
 
 All metrics use the **macro** aggregation: per-class mean, then unweighted
 mean over classes. This is preferred over micro-average when classes are
 imbalanced (as in most histopathology datasets).
 
-Metrics
--------
-Recall@K          : fraction of queries with a relevant item in top-K.
-MacroRecall@K     : Recall@K averaged per class, then over classes.
-MRR@10            : mean reciprocal rank (cutoff 10).
-MacroMRR@10       : MRR@10 macro-averaged over classes.
+Metrics:
+    Recall@K       fraction of queries with a relevant item in top-K.
+    MacroRecall@K  Recall@K averaged per class, then over classes.
+    MRR@10         mean reciprocal rank (cutoff 10).
+    MacroMRR@10    MRR@10 macro-averaged over classes.
 """
 from __future__ import annotations
 

@@ -1,15 +1,9 @@
-"""
-prototypes.py
-=============
-Prototype construction from patch embeddings.
+"""Prototype construction from patch embeddings.
 
-K* selection (adaptive)
------------------------
-For each candidate K in k_grid, compute:
+K* selection (adaptive): for each candidate K in k_grid, compute
     coverage = mean max-cosine-similarity from each patch to its nearest prototype
     support  = clip(patches_per_proto / good_support, 0, 1)
     utility  = coverage * support
-
 K* is the smallest K whose utility is within near_best_ratio of the best
 utility across the grid. This favours parsimonious representations while
 ensuring adequate patch coverage and cluster support.
