@@ -46,3 +46,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Local-only, not ready for the public repo (needs prototype-storage rework)
+scripts/run_tcga_pgr.py
+scripts/compute_mean_patch_count.py
