@@ -25,6 +25,7 @@ import math
 from typing import Any
 
 import numpy as np
+from joblib import Parallel, delayed
 
 from .prototypes import build_adaptive_entry, l2_normalize, _clip01
 
@@ -98,6 +99,27 @@ def build_weighted_entry(
     }
 
 
+def _build_bank_entry(
+    cid: str,
+    patches: np.ndarray,
+    prebuilt: dict[str, Any] | None,
+    *,
+    k_grid: tuple[int, ...],
+    min_support: int,
+    good_support: int,
+    near_best_ratio: float,
+    q_fixed: float,
+    rho: float,
+    tau: float,
+    seed: int,
+) -> tuple[str, dict[str, Any]]:
+    base_entry = prebuilt if prebuilt is not None else build_adaptive_entry(
+        cid, patches, k_grid=k_grid, min_support=min_support,
+        good_support=good_support, near_best_ratio=near_best_ratio, seed=seed,
+    )
+    return cid, build_weighted_entry(cid, patches, base_entry, q_fixed=q_fixed, rho=rho, tau=tau)
+
+
 def build_bank(
     patch_vectors: dict[str, np.ndarray],
     case_ids: list[str],
@@ -111,31 +133,35 @@ def build_bank(
     tau: float = TAU,
     seed: int = 42,
     prebuilt_entries: dict[str, dict[str, Any]] | None = None,
+    n_jobs: int = 1,
 ) -> dict[str, dict[str, Any]]:
     """Build the adaptive prototype bank for all cases.
 
     If prebuilt_entries is provided (e.g. loaded from disk), those base entries
     are reused and the softmax-weighting is applied on top.
 
+    Parameters
+    ----------
+    n_jobs : number of worker processes (joblib). Each case's K* selection and
+        weighted-centroid construction is independent given the same fixed
+        ``seed``, so the returned bank is identical to the sequential
+        (``n_jobs=1``) run regardless of worker count. Use -1 for all cores.
+
     Returns
     -------
     bank : case_id -> dict with prototypes (K*, d) and q_proto (float c_i).
     """
-    base: dict[str, dict[str, Any]] = dict(prebuilt_entries or {})
-    bank: dict[str, dict[str, Any]] = {}
-    for cid in case_ids:
-        if cid not in patch_vectors:
-            continue
-        patches = np.asarray(patch_vectors[cid], dtype=np.float32)
-        if cid not in base:
-            base[cid] = build_adaptive_entry(
-                cid, patches, k_grid=k_grid, min_support=min_support,
-                good_support=good_support, near_best_ratio=near_best_ratio, seed=seed,
-            )
-        bank[cid] = build_weighted_entry(
-            cid, patches, base[cid], q_fixed=q_fixed, rho=rho, tau=tau
+    prebuilt = prebuilt_entries or {}
+    usable = [cid for cid in case_ids if cid in patch_vectors]
+    results = Parallel(n_jobs=n_jobs)(
+        delayed(_build_bank_entry)(
+            cid, np.asarray(patch_vectors[cid], dtype=np.float32), prebuilt.get(cid),
+            k_grid=k_grid, min_support=min_support, good_support=good_support,
+            near_best_ratio=near_best_ratio, q_fixed=q_fixed, rho=rho, tau=tau, seed=seed,
         )
-    return bank
+        for cid in usable
+    )
+    return dict(results)
 
 
 # ---------------------------------------------------------------------------

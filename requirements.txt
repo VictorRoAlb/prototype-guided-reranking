@@ -1,5 +1,6 @@
 numpy>=1.24
 pandas>=1.5
 scikit-learn>=1.2
+joblib>=1.2       # parallel prototype construction (build_fixed_bank/build_bank n_jobs)
 matplotlib>=3.6   # optional, for plotting
 pyyaml>=6.0       # optional, for config loading

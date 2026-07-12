@@ -14,9 +14,22 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
+from joblib import Parallel, delayed
+
 from .prototypes import build_fixed_prototypes, l2_normalize
 
 Q_PROTO: float = 0.80       # prototype weight  (= 1 - alpha_global)
+
+
+def _build_fixed_entry(cid: str, patches: np.ndarray, K: int, seed: int) -> dict[str, Any]:
+    protos, assign = build_fixed_prototypes(np.asarray(patches, dtype=np.float32), K, seed=seed)
+    return {
+        "case_id": cid,
+        "prototypes": protos,
+        "q_proto": Q_PROTO,
+        "K_star": int(protos.shape[0]),
+        "assignments": assign,
+    }
 
 
 def build_fixed_bank(
@@ -25,6 +38,7 @@ def build_fixed_bank(
     K: int,
     *,
     seed: int = 42,
+    n_jobs: int = 1,
 ) -> dict[str, dict[str, Any]]:
     """Build a fixed prototype bank for all cases.
 
@@ -33,26 +47,21 @@ def build_fixed_bank(
     patch_vectors : case_id -> (P, d) L2-normalised patch matrix.
     case_ids : ordered list of case IDs to include.
     K : number of prototypes per case.
+    n_jobs : number of worker processes (joblib). Each case is clustered
+        independently with the same fixed ``seed``, so results are identical
+        to the sequential (``n_jobs=1``) run regardless of worker count or
+        scheduling order — this only changes wall-clock time, never the
+        prototypes/scores. Use -1 for all available cores.
 
     Returns
     -------
     bank : case_id -> dict with keys prototypes (K, d) and q_proto (float).
     """
-    bank: dict[str, dict[str, Any]] = {}
-    for cid in case_ids:
-        if cid not in patch_vectors:
-            continue
-        protos, assign = build_fixed_prototypes(
-            np.asarray(patch_vectors[cid], dtype=np.float32), K, seed=seed
-        )
-        bank[cid] = {
-            "case_id": cid,
-            "prototypes": protos,
-            "q_proto": Q_PROTO,
-            "K_star": int(protos.shape[0]),
-            "assignments": assign,
-        }
-    return bank
+    usable = [cid for cid in case_ids if cid in patch_vectors]
+    entries = Parallel(n_jobs=n_jobs)(
+        delayed(_build_fixed_entry)(cid, patch_vectors[cid], K, seed) for cid in usable
+    )
+    return {entry["case_id"]: entry for entry in entries}
 
 
 def score_matrix_fixed(

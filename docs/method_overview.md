@@ -57,7 +57,7 @@ $K$ is chosen per dataset based on mean patch count per slide. A practical guide
 ### $K^*$ selection (utility criterion)
 
 For each case, several values of $K$ are evaluated from the grid $\{2, 4, 6, 8, 12\}$.
-A $K$ value is valid only if it leaves at least $\text{min\_support} = 6$ patches per cluster.
+A $K$ value is valid only if it leaves at least `min_support` $= 6$ patches per cluster.
 
 For each valid $K$, two quantities are computed from the patch matrix alone:
 
@@ -66,8 +66,10 @@ $$
 $$
 
 $$
-\text{support} = \text{clip}\left(\frac{\text{patches per prototype}}{\text{good\_support}}, 0, 1\right), \quad \text{good\_support} = 20
+\text{support} = \text{clip}\left(\frac{\text{patches per prototype}}{g}, 0, 1\right)
 $$
+
+where $g = 20$ (`good_support` in the code).
 
 $$
 \text{utility} = \text{coverage} \times \text{support}
