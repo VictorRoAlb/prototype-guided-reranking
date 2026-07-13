@@ -47,6 +47,8 @@ def main() -> None:
     p.add_argument("--out", type=Path, default=Path("results/fixed_pgr_query_level.csv"))
     p.add_argument("--dataset", default="")
     p.add_argument("--model", default="")
+    p.add_argument("--n-jobs", type=int, default=1,
+                   help="Parallel workers for prototype construction (joblib). -1 = all cores.")
     args = p.parse_args()
 
     meta = pd.read_csv(args.meta)
@@ -62,7 +64,7 @@ def main() -> None:
             patch_vectors[cid] = l2_normalize(np.load(f).astype(np.float32))
 
     print(f"Loaded patches for {len(patch_vectors)}/{len(case_ids)} cases. Building K={args.K} bank...")
-    bank = build_fixed_bank(patch_vectors, case_ids, K=args.K)
+    bank = build_fixed_bank(patch_vectors, case_ids, K=args.K, n_jobs=args.n_jobs)
 
     global_i2t = (image @ text.T).astype(np.float32)
     global_t2i = global_i2t.T.astype(np.float32)

@@ -82,6 +82,11 @@ python scripts/run_full_evaluation.py \
 Each script prints a summary table (MacroRecall@K and MacroMRR@10) and writes
 per-query results to CSV.
 
+All three prototype-building scripts accept `--n-jobs` (default `1`) to
+parallelise prototype construction across cases with `joblib` — each case is
+clustered independently, so `--n-jobs -1` (all cores) gives the same banks
+and scores as `--n-jobs 1`, just faster on larger cohorts.
+
 ---
 
 ## Choosing K (fixed reranking)

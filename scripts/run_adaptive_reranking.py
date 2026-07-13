@@ -49,6 +49,8 @@ def main() -> None:
     p.add_argument("--out", type=Path, default=Path("results/adaptive_pgr_query_level.csv"))
     p.add_argument("--dataset", default="")
     p.add_argument("--model", default="")
+    p.add_argument("--n-jobs", type=int, default=1,
+                   help="Parallel workers for prototype construction (joblib). -1 = all cores.")
     args = p.parse_args()
 
     meta = pd.read_csv(args.meta)
@@ -66,7 +68,7 @@ def main() -> None:
     k_grid = tuple(int(k.strip()) for k in args.k_grid.split(",") if k.strip())
     print(f"Building adaptive bank (k_grid={k_grid}) for "
           f"{len(patch_vectors)}/{len(case_ids)} cases...")
-    bank = build_bank(patch_vectors, case_ids, k_grid=k_grid)
+    bank = build_bank(patch_vectors, case_ids, k_grid=k_grid, n_jobs=args.n_jobs)
 
     global_i2t = (image @ text.T).astype(np.float32)
     global_t2i = global_i2t.T.astype(np.float32)

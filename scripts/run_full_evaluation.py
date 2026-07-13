@@ -44,6 +44,8 @@ def main() -> None:
     p.add_argument("--dataset", default="")
     p.add_argument("--model", default="")
     p.add_argument("--out-dir", type=Path, default=Path("results"))
+    p.add_argument("--n-jobs", type=int, default=1,
+                   help="Parallel workers for prototype construction (joblib). -1 = all cores.")
     args = p.parse_args()
 
     meta = pd.read_csv(args.meta)
@@ -74,7 +76,7 @@ def main() -> None:
     print("  [mean_pooling] done")
 
     # ── Fixed PGR ───────────────────────────────────────────────────────────
-    fixed_bank = build_fixed_bank(patch_vectors, case_ids, K=args.fixed_k)
+    fixed_bank = build_fixed_bank(patch_vectors, case_ids, K=args.fixed_k, n_jobs=args.n_jobs)
     s_i = score_matrix_fixed(text, case_ids, fixed_bank, global_i2t,
                              rerank_top_n=args.rerank_top_n)
     s_t = score_matrix_fixed(image, case_ids, fixed_bank, global_t2i,
@@ -90,7 +92,7 @@ def main() -> None:
 
     # ── Adaptive PGR ────────────────────────────────────────────────────────
     k_grid = tuple(int(k.strip()) for k in args.k_grid.split(",") if k.strip())
-    adaptive_bank = build_bank(patch_vectors, case_ids, k_grid=k_grid)
+    adaptive_bank = build_bank(patch_vectors, case_ids, k_grid=k_grid, n_jobs=args.n_jobs)
     s_i = score_matrix_adaptive(text, case_ids, adaptive_bank, global_i2t,
                                 rerank_top_n=args.rerank_top_n)
     s_t = score_matrix_adaptive(image, case_ids, adaptive_bank, global_t2i,
