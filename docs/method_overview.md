@@ -113,3 +113,48 @@ $$
   averaged over classes (unweighted). Recommended for imbalanced datasets.
 - **Directions**: I2T (image query → text candidates) and T2I (text query → image
   candidates) are evaluated independently.
+
+## Statistical significance
+
+Implemented in `src/prototype_reranking/significance.py`. Two levels of analysis
+are used, differing only in the **unit of resampling**:
+
+- **Per model/cohort/direction**: the unit is the individual query. Queries are
+  resampled with replacement *within each class* (`paired_bootstrap_delta`),
+  preserving the macro-averaging structure, and the same resampled indices are
+  applied to both methods being compared (paired bootstrap).
+- **Global (aggregated across cohorts)**: the unit is a model×direction cell,
+  carrying its per-dataset results together; the same resampled cell indices
+  are applied across datasets and methods in every replicate.
+
+In both cases:
+
+- **B = 10,000** bootstrap replicates, fixed seed (reproducible).
+- The p-value is **bilateral** (two-sided):
+
+$$
+p = \min\left(1,\; 2 \min\big(P(\Delta^{(b)} \le 0),\; P(\Delta^{(b)} \ge 0)\big)\right)
+$$
+
+  where $\Delta^{(b)} = M_{\text{PGR}}^{(b)} - M_{\text{BGAP}}^{(b)}$ is the paired
+  delta in bootstrap replicate $b$. A single bilateral test is sufficient to
+  detect both improvements and degradations; the *direction* is read off the
+  sign of the observed (non-bootstrapped) delta, not from running two separate
+  one-sided tests.
+- Raw p-values are corrected with **Holm-Bonferroni** (`holm_bonferroni`) within
+  each family of related hypotheses -- e.g. all patch-level models × both PGR
+  variants, for a fixed metric/cohort/direction. Significant at
+  $p^{\text{adj}} < 0.05$.
+- `significance_symbol` maps a Holm-adjusted p-value and the observed delta's
+  sign to `*` (significant improvement), `†` (significant degradation), or `""`
+  (not significant).
+
+```python
+from prototype_reranking import paired_bootstrap_delta, holm_bonferroni, significance_symbol
+
+result = paired_bootstrap_delta(query_df, "MRR@10", "adaptive_PGR", "mean_pooling")
+# {'observed_delta': ..., 'ci95_low': ..., 'ci95_high': ..., 'raw_p_bilateral': ...}
+
+holm_adjusted = holm_bonferroni([r["raw_p_bilateral"] for r in family_results])
+symbols = [significance_symbol(p, r["observed_delta"]) for p, r in zip(holm_adjusted, family_results)]
+```

@@ -10,6 +10,7 @@ Quick start:
 from .evaluation import evaluate_both_directions, evaluate_retrieval
 from .metrics import compute_all_metrics, macro_mrr, macro_recall_at_k
 from .prototypes import build_adaptive_entry, build_fixed_prototypes, l2_normalize
+from .significance import holm_bonferroni, paired_bootstrap_delta, significance_symbol
 
 __all__ = [
     "l2_normalize",
@@ -20,4 +21,7 @@ __all__ = [
     "macro_recall_at_k",
     "macro_mrr",
     "compute_all_metrics",
+    "paired_bootstrap_delta",
+    "holm_bonferroni",
+    "significance_symbol",
 ]
