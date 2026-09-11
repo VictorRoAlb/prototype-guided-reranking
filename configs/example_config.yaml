@@ -20,14 +20,18 @@ metadata:
   label_col: "label"
 
 fixed_pgr:
-  K: 8              # prototypes per case (set by mean patch count; see docs/method_overview.md)
+  # K here is the number of prototypes per case (H in docs/method_overview.md,
+  # not ranking depth). Set by mean patch count; see docs/method_overview.md.
+  K: 8
   rerank_top_n: 50  # candidates per query to rerank
 
 adaptive_pgr:
-  k_grid: [2, 4, 6, 8, 12]  # candidate K values explored for K* selection
-  min_support: 6            # minimum patches per prototype (filters invalid K values)
+  k_grid: [2, 4, 6, 8, 12]  # candidate prototype counts (H) explored for H* selection
+  min_support: 6            # validity threshold on MEAN support: a candidate H is valid
+                             # only if n_patches / H >= min_support (average per prototype,
+                             # not a guarantee for every individual cluster)
   good_support: 20          # reference patches-per-prototype for normalising support
-  near_best_ratio: 0.97     # K* = smallest K within this fraction of the best utility
+  near_best_ratio: 0.97     # H* = smallest valid H within this fraction of the best utility
   rerank_top_n: 50
   q_fixed: 0.80     # fixed baseline prototype weight
   rho: 0.50         # blend factor between q_fixed and per-case quality

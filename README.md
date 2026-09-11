@@ -16,8 +16,11 @@ Post-hoc, training-free reranking method for cross-modal retrieval (image↔text
 
 Top-50 candidates from global similarity are re-ranked using prototype
 similarity (△ in the figure), computed either with a fixed number of
-prototypes per case or with a per-case adaptive count K\*. See
-[docs/method_overview.md](docs/method_overview.md) for the full formulation.
+prototypes per case ($H$) or with a per-case adaptive count $H^*$ (written
+$H_j^*$ in the thesis). $K$ is reserved for ranking depth (Recall@K); the CLI
+flags below keep the shorter name `K`/`K*` for the prototype count. See
+[docs/method_overview.md](docs/method_overview.md) for the full formulation
+and the notation mapping.
 
 ---
 
@@ -67,7 +70,7 @@ python scripts/run_fixed_reranking.py \
     --text-emb data/text.npy --image-emb data/image_meanpool.npy \
     --patch-dir data/patches/ --meta data/metadata.csv --K 8
 
-# Adaptive prototype reranking  (K* selected automatically per slide)
+# Adaptive prototype reranking  (H* selected automatically per slide)
 python scripts/run_adaptive_reranking.py \
     --text-emb data/text.npy --image-emb data/image_meanpool.npy \
     --patch-dir data/patches/ --meta data/metadata.csv
@@ -89,15 +92,17 @@ and scores as `--n-jobs 1`, just faster on larger cohorts.
 
 ---
 
-## Choosing K (fixed reranking)
+## Choosing H (fixed reranking)
 
-| Mean patches per slide | Recommended K |
+| Mean patches per slide | Recommended H |
 |---|---|
 | < 50 | 2 |
 | 50 – 200 | 4 – 6 |
 | > 200 | 8 |
 
-For adaptive reranking K* is selected automatically per slide — no tuning needed.
+For adaptive reranking H* is selected automatically per slide — no tuning needed.
+(This is the `--K` flag / `K` parameter in the code and CLI — see
+[docs/method_overview.md](docs/method_overview.md#notation) for the notation mapping.)
 
 ---
 
@@ -120,7 +125,7 @@ from the candidate pool before ranking.
 
 ```
 src/prototype_reranking/
-  prototypes.py     build_fixed_prototypes, build_adaptive_entry (K* via utility)
+  prototypes.py     build_fixed_prototypes, build_adaptive_entry (H* via utility)
   fixed.py          build_fixed_bank, score_matrix_fixed
   adaptive.py       build_bank, score_matrix_adaptive
   metrics.py        MacroRecall@K, MacroMRR@10
@@ -129,7 +134,7 @@ src/prototype_reranking/
 scripts/
   run_baseline.py              global cosine-similarity baseline
   run_fixed_reranking.py       fixed-K prototype reranking
-  run_adaptive_reranking.py    per-case K* adaptive reranking
+  run_adaptive_reranking.py    per-case H* adaptive reranking
   run_full_evaluation.py       all three methods in one run
   visualize_wsi.py             prototype activation map on a TIF slide
 
@@ -164,7 +169,7 @@ L2-normalised and row-aligned with the coordinates file.
 The script generates a two-panel figure: the original slide thumbnail on the
 left and the prototype activation overlay on the right (each activated patch
 drawn as a colored square). With `--method fixed` use `--K` to set the number
-of prototypes; with `--method adaptive` K* is selected automatically.
+of prototypes ($H$); with `--method adaptive` H* is selected automatically.
 
 ---
 

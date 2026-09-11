@@ -14,6 +14,16 @@ the goal is to retrieve the most relevant cases for a given text or image query
 All embeddings must be L2-normalised. The reranking operates entirely on
 precomputed numpy arrays; no model loading or GPU is required at inference time.
 
+## Notation
+
+$H$ denotes the **number of prototypes per case** (fixed variant), and $H_i^*$
+the **adaptive, per-case prototype count** selected for case $i$ (written
+$H_j^*$ in the thesis; $i$/$j$ both index a case). $K$ is reserved for
+**ranking depth**, as in Recall@$K$ and MacroRecall@$K$ below — it is never the
+number of prototypes. The CLI flags and Python parameters keep the shorter name
+`K` / `K_star` (e.g. `--K`, `k_grid`, `K_star` in the returned dict); wherever
+you see `K` in the code or CLI help, read it as $H$ in this document.
+
 ## Baseline: mean-pool global retrieval
 
 $$
@@ -26,12 +36,12 @@ $$
 
 ## Fixed prototype reranking
 
-Each candidate slide is represented by $K$ prototypes obtained from MiniBatchKMeans
+Each candidate slide is represented by $H$ prototypes obtained from MiniBatchKMeans
 clustering of its patch embeddings. The prototype score is the maximum cosine
-similarity between the query and any of the $K$ prototypes:
+similarity between the query and any of the $H$ prototypes:
 
 $$
-s_{\text{proto}} = \max_k \cos(\text{query}, \text{prototype}_k)
+s_{\text{proto}} = \max_h \cos(\text{query}, \text{prototype}_h)
 $$
 
 The final score combines global and prototype similarity:
@@ -44,9 +54,9 @@ where $q_{\text{proto}} = 0.80$ (fixed, corresponding to $\alpha_{\text{global}}
 Reranking is applied to the top-50 candidates by global similarity; the rest retain
 their global order.
 
-$K$ is chosen per dataset based on mean patch count per slide. A practical guide:
+$H$ is chosen per dataset based on mean patch count per slide. A practical guide:
 
-| Mean patch count | Recommended $K$ |
+| Mean patch count | Recommended $H$ |
 |---|---|
 | < 50 patches | 2 |
 | 50–200 patches | 4–6 |
@@ -54,28 +64,34 @@ $K$ is chosen per dataset based on mean patch count per slide. A practical guide
 
 ## Adaptive prototype reranking
 
-### $K^*$ selection (utility criterion)
+### $H_i^*$ selection (utility criterion)
 
-For each case, several values of $K$ are evaluated from the grid $\{2, 4, 6, 8, 12\}$.
-A $K$ value is valid only if it leaves at least `min_support` $= 6$ patches per cluster.
+For each case $i$ with $N_i$ patches, several candidate values of $H$ are
+evaluated from the grid $\{2, 4, 6, 8, 12\}$. A candidate $H$ is valid only if
+the **mean support** — the average number of patches per prototype — meets the
+threshold $N_i / H \ge$ `min_support` $= 6$. This is a constraint on the
+*average* cluster size, not a per-cluster guarantee: because MiniBatchKMeans
+clusters can be unbalanced, an individual cluster may still end up with fewer
+than 6 patches even when $N_i / H \ge 6$ holds.
 
-For each valid $K$, two quantities are computed from the patch matrix alone:
+For each valid $H$, two quantities are computed from the patch matrix alone:
 
 $$
-\text{coverage} = \text{mean over patches of } \max_k \cos(\text{patch}, \text{prototype}_k)
+\text{coverage} = \text{mean over patches of } \max_h \cos(\text{patch}, \text{prototype}_h)
 $$
 
 $$
-\text{support} = \text{clip}\left(\frac{\text{patches per prototype}}{g}, 0, 1\right)
+\text{support} = \text{clip}\left(\frac{N_i / H}{g}, 0, 1\right)
 $$
 
-where $g = 20$ (`good_support` in the code).
+where $g = 20$ (`good_support` in the code) and $N_i / H$ is the mean number of
+patches per prototype.
 
 $$
 \text{utility} = \text{coverage} \times \text{support}
 $$
 
-$K^*$ is the smallest valid $K$ whose utility is within 97% of the maximum utility
+$H_i^*$ is the smallest valid $H$ whose utility is within 97% of the maximum utility
 across the grid (near-best parsimony criterion). This selects compact
 representations that still cover the patch space well.
 
@@ -92,7 +108,7 @@ The prototype confidence $c_i$ for each case blends a fixed baseline $Q_{\text{f
 with the per-case utility:
 
 $$
-c_i = (1 - \rho) \cdot Q_{\text{fixed}} + \rho \cdot \text{utility}(K^*), \quad Q_{\text{fixed}} = 0.80, \ \rho = 0.50
+c_i = (1 - \rho) \cdot Q_{\text{fixed}} + \rho \cdot \text{utility}(H_i^*), \quad Q_{\text{fixed}} = 0.80, \ \rho = 0.50
 $$
 
 Cases with weak prototype structure (few patches, low coverage) receive $c_i$
