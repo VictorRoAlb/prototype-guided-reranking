@@ -16,9 +16,9 @@ precomputed numpy arrays; no model loading or GPU is required at inference time.
 
 ## Notation
 
-$H$ denotes the **number of prototypes per case** (fixed variant), and $H_i^*$
+$H$ denotes the **number of prototypes per case** (fixed variant), and $H_i^\ast$
 the **adaptive, per-case prototype count** selected for case $i$ (written
-$H_j^*$ in the thesis; $i$/$j$ both index a case). $K$ is reserved for
+$H_j^\ast$ in the thesis; $i$/$j$ both index a case). $K$ is reserved for
 **ranking depth**, as in Recall@$K$ and MacroRecall@$K$ below — it is never the
 number of prototypes. The CLI flags and Python parameters keep the shorter name
 `K` / `K_star` (e.g. `--K`, `k_grid`, `K_star` in the returned dict); wherever
@@ -64,7 +64,7 @@ $H$ is chosen per dataset based on mean patch count per slide. A practical guide
 
 ## Adaptive prototype reranking
 
-### $H_i^*$ selection (utility criterion)
+### $H_i^\ast$ selection (utility criterion)
 
 For each case $i$ with $N_i$ patches, several candidate values of $H$ are
 evaluated from the grid $\{2, 4, 6, 8, 12\}$. A candidate $H$ is valid only if
@@ -91,7 +91,7 @@ $$
 \text{utility} = \text{coverage} \times \text{support}
 $$
 
-$H_i^*$ is the smallest valid $H$ whose utility is within 97% of the maximum utility
+$H_i^\ast$ is the smallest valid $H$ whose utility is within 97% of the maximum utility
 across the grid (near-best parsimony criterion). This selects compact
 representations that still cover the patch space well.
 
@@ -108,7 +108,7 @@ The prototype confidence $c_i$ for each case blends a fixed baseline $Q_{\text{f
 with the per-case utility:
 
 $$
-c_i = (1 - \rho) \cdot Q_{\text{fixed}} + \rho \cdot \text{utility}(H_i^*), \quad Q_{\text{fixed}} = 0.80, \ \rho = 0.50
+c_i = (1 - \rho) \cdot Q_{\text{fixed}} + \rho \cdot \text{utility}(H_i^\ast), \quad Q_{\text{fixed}} = 0.80, \ \rho = 0.50
 $$
 
 Cases with weak prototype structure (few patches, low coverage) receive $c_i$

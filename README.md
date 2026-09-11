@@ -16,11 +16,9 @@ Post-hoc, training-free reranking method for cross-modal retrieval (image↔text
 
 Top-50 candidates from global similarity are re-ranked using prototype
 similarity (△ in the figure), computed either with a fixed number of
-prototypes per case ($H$) or with a per-case adaptive count $H^*$ (written
-$H_j^*$ in the thesis). $K$ is reserved for ranking depth (Recall@K); the CLI
-flags below keep the shorter name `K`/`K*` for the prototype count. See
-[docs/method_overview.md](docs/method_overview.md) for the full formulation
-and the notation mapping.
+prototypes per case ($H$) or with a per-case adaptive count ($H^\ast$, written
+$H_j^\ast$ in the thesis). See [docs/method_overview.md](docs/method_overview.md)
+for the full formulation and notation.
 
 ---
 
@@ -100,9 +98,8 @@ and scores as `--n-jobs 1`, just faster on larger cohorts.
 | 50 – 200 | 4 – 6 |
 | > 200 | 8 |
 
-For adaptive reranking H* is selected automatically per slide — no tuning needed.
-(This is the `--K` flag / `K` parameter in the code and CLI — see
-[docs/method_overview.md](docs/method_overview.md#notation) for the notation mapping.)
+For adaptive reranking $H^\ast$ is selected automatically per slide — no tuning
+needed (the `--K` / `k_grid` flags below).
 
 ---
 
@@ -169,7 +166,7 @@ L2-normalised and row-aligned with the coordinates file.
 The script generates a two-panel figure: the original slide thumbnail on the
 left and the prototype activation overlay on the right (each activated patch
 drawn as a colored square). With `--method fixed` use `--K` to set the number
-of prototypes ($H$); with `--method adaptive` H* is selected automatically.
+of prototypes ($H$); with `--method adaptive` $H^\ast$ is selected automatically.
 
 ---
 
